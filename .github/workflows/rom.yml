@@ -2,7 +2,7 @@
 # Copyright (c) 2023
 #
 
-name: Build ROOter
+name: Build ROOter Linksys ac1900
 
 on:
   schedule:
