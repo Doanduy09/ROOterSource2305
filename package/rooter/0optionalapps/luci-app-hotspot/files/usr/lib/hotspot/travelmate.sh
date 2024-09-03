@@ -54,7 +54,19 @@ count_radio() {
 	local channel
 
 	config_get channel $1 channel
-	if [ $channel -gt 15 ]; then
+	config_get hwmode $1 hwmode
+	config_get band $1 band
+	fr="1"
+	if [ -z "$hwmode" ]; then
+		if [ "$band" = "2g" ]; then
+			fr="0"
+		fi
+	else
+		if [ "$hwmode" = "g" ]; then
+			fr="0"
+		fi
+	fi
+	if [ "$fr" = "1" ]; then
 		uci set travelmate.global.radio5="5.8 Ghz"
 	else
 		uci set travelmate.global.radio2="2.4 Ghz"
@@ -147,6 +159,12 @@ f_check()
         if [ "${mode}" = "sta" ]
         then
 			trm_ifstatus="$(ubus -S call network.interface dump | jsonfilter -e "@.interface[@.device=\"${ifname}\"].up")"
+			trr=$(echo ${trm_ifstatus} | grep "true")
+			if [ ! -z "$trr" ]; then
+				trm_ifstatus="true"
+			else
+				trm_ifstatus="false"
+			fi
         else
             trm_ifstatus="$(ubus -S call network.wireless status | jsonfilter -l1 -e '@.*.up')"
         fi
@@ -220,7 +238,8 @@ f_main()
 {
     local config network ssid cnt=0
 	wif=$(uci -q get travelmate.global.freq)
-	
+	uci set travelmate.global.state='3'
+	uci commit travelmate
 	trm_stalist=""
 	# check if wwan is connected
     f_check "sta"
@@ -257,7 +276,8 @@ f_main()
 		ubus call network.interface.wwan$wif up
 		ubus call network reload
 		wifi up $(uci -q get wireless.wwan$wif.device)
-		sleep 5
+		
+		#sleep 5
 
 		# set disabled for wwan iface
         config_load wireless
@@ -309,6 +329,10 @@ f_main()
 							fi
 						fi
 						
+						#wifi up $(uci -q get wireless.wwan$wif.device)
+						#ubus call network.interface.wwan$wif up
+                        #ubus call network reload
+						
 						if [ -f "${FILE}" ]; then
 							# read list of selected Hotspots
 							while IFS='|' read -r ssid encrypt key
@@ -328,11 +352,17 @@ f_main()
 									fi
 									uci -q set wireless.wwan$wif.key=$key
 									uci -q set wireless.wwan$wif.disabled=0
+									uci -q set wireless.wwan$wif.mode="sta"
 									uci -q commit wireless
+									
 									wifi up $(uci -q get wireless.wwan$wif.device)
-									ubus call network.interface.wwan$wif up
-                            		ubus call network reload
+									#ubus call network.interface.wwan$wif up
+                            		#ubus call network reload
+									ifup wwan$wif
+
 									f_log "info " "main    ::: wwan interface connected to uplink ${ssid}"
+									uci set travelmate.global.state='5'
+									uci commit travelmate
 									sleep 5
 									# wait and check for good connection
 									f_check "ap"
@@ -348,9 +378,12 @@ f_main()
 										f_log "info" "AP Status   ::: $trm_ifstatus"
 									done
 									cntx=0
+									uci set travelmate.global.state='6'
+									uci commit travelmate
 									#delay=$(uci -q get travelmate.global.delay)
+									ifup wwan$wif
 									f_check "sta"
-									f_log "info" "STA Status ${trm_ifstatus}"
+									f_log "info" "STA Status **${trm_ifstatus}**"
 									while [ "${trm_ifstatus}" != "true" ]; do
 										sleep 1
 										f_check "sta"
@@ -360,7 +393,6 @@ f_main()
 										fi
 										f_log "info" "STA Status ${trm_ifstatus}"
 									done
-
 									if [ "${trm_ifstatus}" = "true" ]; then
 										uci set travelmate.global.ssid="$ssid"
 										uci set travelmate.global.connecting="0"

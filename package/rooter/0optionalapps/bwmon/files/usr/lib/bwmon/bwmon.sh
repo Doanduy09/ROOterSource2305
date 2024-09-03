@@ -129,6 +129,33 @@ update() {
 	
 }
 
+checkreset()
+{
+	if [ -e /tmp/bwreset ]; then
+		newbw=$(cat /tmp/bwreset)
+		uci set bwmon.backup.dailytotal='0'
+		uci set bwmon.backup.dailyrx='0'
+		uci set bwmon.backup.dailytx='0'
+		uci set bwmon.backup.montotal="$newbw"
+		uci set bwmon.backup.monrx="$newbw"
+		uci set bwmon.backup.montx='0'
+		uci commit bwmon
+		basedailytotal=0
+		basedailyrx=0
+		basedailytx=0
+		basemontotal="$newbw"
+		basemonrx="$newbw"
+		basemontx=0
+		let dailyoffsettotal=$totval
+		let dailyoffsetrx=$rxval
+		let dailyoffsettx=$txval
+		let monoffsettotal=$totval
+		let monoffsetrx=$rxval
+		let monoffsettx=$txval
+		rm -f /tmp/bwreset
+	fi
+}
+
 checkTime() 
 {
 	pDay=$(date +%d)
@@ -139,6 +166,7 @@ checkTime()
 	
 		# save as daily totals
 #log "Daily Amt Saved $currdailytotal $currdailytx $currdailyrx"
+#log "Monthly Amt $currmontotal $currmontx $currmonrx"
 		echo "$currdailytotal" > $dataPath"daily.js"
 		echo "$currdailytx" >> $dataPath"daily.js"
 		echo "$currdailyrx" >> $dataPath"daily.js"
@@ -174,9 +202,27 @@ checkTime()
 		let dailyoffsettotal=$totval
 		let dailyoffsetrx=$rxval
 		let dailyoffsettx=$txval
+		
 		roll=$(uci -q get custom.bwallocate.rollover)
 		[ -z $roll ] && roll=1
-		if [ "$roll" -le "$pDay" ]; then # new month
+		rolld="0"
+		if [ "$roll" -eq "$pDay" ]; then
+			rolld="1"
+		fi
+		if [ "$roll" -lt "$pDay" ]; then
+			rollmon=$(uci -q get bwmon.backup.rollmon)
+			if [ -z "$rollmon" ]; then
+				rollmon="$pMonth"
+			fi
+			if [ "$rollmon" -ne "$pMonth" ]; then
+				rolld="1"
+			fi
+		fi
+#log "Roll $roll $pDay Rollmon $rollmon $rolld"
+		#if [ "1" = "0" ]; then
+		if [ "$rolld" = "1" ]; then # new month
+			uci set bwmon.backup.rollmon="$pMonth"
+			uci commit bwmon
 			basemontotal=0
 			basemonrx=0
 			basemontx=0
@@ -286,6 +332,7 @@ update_time=10 # check each seconds
 createAmt
 while [ true ] ; do
 	update
+	checkreset
 	checkTime
 	checkBackup
 	createGUI
