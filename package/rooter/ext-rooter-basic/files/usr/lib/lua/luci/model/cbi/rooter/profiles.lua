@@ -306,6 +306,9 @@ timeout:value("7", translate("7 seconds"))
 timeout:value("8", translate("8 seconds"))
 timeout:value("9", translate("9 seconds"))
 timeout:value("10", translate("10 seconds"))
+timeout:value("15", translate("15 seconds"))
+timeout:value("20", translate("20 seconds"))
+timeout:value("25", translate("25 seconds"))
 timeout:depends("alive", "1")
 timeout:depends("alive", "2")
 timeout:depends("alive", "3")
@@ -682,9 +685,11 @@ end
 
 		cmw = s:taboption(this_ctaba, ListValue, "inter", translate("Modem Interface Selection :"));
 		cmw:value("0", "Auto")
-		cmw:value("1", "WAN1")
-		cmw:value("2", "WAN2")
-		cmw:value("3", "OFF")
+		for i=1,maxmodem do
+			si = tostring(i)
+			cmw:value(si, "WAN" .. si)
+		end
+		cmw:value("5", "OFF")
 		cmw.default=0
 
 		cmd = s:taboption(this_ctaba, Value, "delay", translate("Connection Delay in Seconds :")); 
@@ -805,6 +810,9 @@ end
 		timeout:value("8", translate("8 seconds"))
 		timeout:value("9", translate("9 seconds"))
 		timeout:value("10", translate("10 seconds"))
+		timeout:value("15", translate("15 seconds"))
+		timeout:value("20", translate("20 seconds"))
+		timeout:value("25", translate("25 seconds"))
 		timeout:depends("alive", "1")
 		timeout:depends("alive", "2")
 		timeout:depends("alive", "3")

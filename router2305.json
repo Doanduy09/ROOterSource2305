@@ -21,15 +21,14 @@
 		"mod": "Turris-Omnia-2305",
 		"addons": ["readme.pdf", "turris-omnia-initramfs.tar.gz", "turris.txt"]
 	},
-	"WG1602-32": {
+	"WG1602V04-32": {
 		"details": "ZBT WG1602",
 		"type": "1",
 		"build": "2305",
-		"config": ".config_wg1602-32",
-		"prescript": "/target/linux/ramips/wg1602.sh 16",
+		"config": ".config_wg1602v4-32",
 		"image": "openwrt-ramips-mt7621-zbtlink_zbt-wg1602-v04-32m-squashfs-sysupgrade.bin",
 		"imagepath": "/ramips/mt7621/",
-		"mod": "ZBT-WG1602-32",
+		"mod": "ZBT-WG1602V04-32",
 		"ext": "-upgrade.bin",
 		"addons": ["readme.pdf", "readmerecovery.txt", "usb-configuration.txt"]
 	},
@@ -68,25 +67,6 @@
 		"mod": "Dynalink-DL-WRX36",
 		"ext1": "-upgrade.bin",
 		"ext2": "-initramfs.itb",
-		"addons": ["readme.pdf"]
-	},
-	"X86-64": {
-		"details": "Generic x86 64 bit",
-		"type": "5",
-		"build": "2203",
-		"config": ".config_x86-64",
-		"image1": "openwrt-x86-64-generic-ext4-combined.img.gz",
-		"image2": "openwrt-x86-64-generic-ext4-combined.img",
-		"image3": "openwrt-x86-64-generic-ext4-combined-efi.img.gz",
-		"image4": "openwrt-x86-64-generic-ext4-combined-efi.img",
-		"image5": "openwrt-x86-64-generic-kernel.bin",
-		"image6": "openwrt-x86-64-generic-rootfs.tar.gz",
-		"image7": "openwrt-x86-64-generic.manifest",
-		"image8": "packages",
-		"image9": "sha256sums",
-		"image10": "*.buildinfo",
-		"imagepath": "/x86/64/",
-		"mod": "x86-64",
 		"addons": ["readme.pdf"]
 	},
 	"WS1688-16": {
@@ -147,72 +127,6 @@
 			"files": "/huasifei/files1688/"	
 		}
 	},
-	"RASPPI4": {
-		"details": "Raspberry Pi 4 SD",
-		"type": "3",
-		"build": "2102",
-		"config": ".config_rasppi4",
-		"prescript": "/target/linux/bcm27xx/image/sdcard.sh sd",
-		"image1": "openwrt-bcm27xx-bcm2711-rpi-4-ext4-factory.img.gz",
-		"image2": "openwrt-bcm27xx-bcm2711-rpi-4-ext4-factory.img",
-		"image3": "openwrt-bcm27xx-bcm2711-rpi-4-squashfs-sysupgrade.img.gz",
-		"image4": "openwrt-bcm27xx-bcm2711-rpi-4-squashfs-sysupgrade.img",
-		"imagepath": "/bcm27xx/bcm2711/",
-		"mod": "RaspberryPi-4-SD",
-		"ext1": "-ext4.img",
-		"ext2": "-squashfs.img",
-		"addons": ["readme.pdf"]
-	},
-	"RASPPI4USB": {
-		"details": "Raspberry Pi 4 USB",
-		"type": "3",
-		"build": "2102",
-		"config": ".config_rasppi4",
-		"prescript": "/target/linux/bcm27xx/image/sdcard.sh usb",
-		"postscript": "/target/linux/bcm27xx/image/sdcard.sh sd",
-		"image1": "openwrt-bcm27xx-bcm2711-rpi-4-ext4-factory.img.gz",
-		"image2": "openwrt-bcm27xx-bcm2711-rpi-4-ext4-factory.img",
-		"image3": "openwrt-bcm27xx-bcm2711-rpi-4-squashfs-sysupgrade.img.gz",
-		"image4": "openwrt-bcm27xx-bcm2711-rpi-4-squashfs-sysupgrade.img",
-		"imagepath": "/bcm27xx/bcm2711/",
-		"mod": "RaspberryPi-4-USB",
-		"ext1": "-ext4.img",
-		"ext2": "-squashfs.img",
-		"addons": ["readme.pdf"]
-	},
-	"RASPPICM4": {
-		"details": "Raspberry Pi CM4 SD",
-		"type": "3",
-		"build": "2102",
-		"config": ".config_rasppicm4",
-		"prescript": "/target/linux/bcm27xx/image/sdcard.sh sd",
-		"image1": "openwrt-bcm27xx-bcm2711-rpi-4-ext4-factory.img.gz",
-		"image2": "openwrt-bcm27xx-bcm2711-rpi-4-ext4-factory.img",
-		"image3": "openwrt-bcm27xx-bcm2711-rpi-4-squashfs-sysupgrade.img.gz",
-		"image4": "openwrt-bcm27xx-bcm2711-rpi-4-squashfs-sysupgrade.img",
-		"imagepath": "/bcm27xx/bcm2711/",
-		"mod": "RaspberryPi-CM4-SD",
-		"ext1": "-ext4.img",
-		"ext2": "-squashfs.img",
-		"addons": ["readme.pdf"]
-	},
-	"RASPPICM4USB": {
-		"details": "Raspberry Pi CM4-USB",
-		"type": "3",
-		"build": "2102",
-		"config": ".config_rasppicm4",
-		"prescript": "/target/linux/bcm27xx/image/sdcard.sh usb",
-		"postscript": "/target/linux/bcm27xx/image/sdcard.sh sd",
-		"image1": "openwrt-bcm27xx-bcm2711-rpi-4-ext4-factory.img.gz",
-		"image2": "openwrt-bcm27xx-bcm2711-rpi-4-ext4-factory.img",
-		"image3": "openwrt-bcm27xx-bcm2711-rpi-4-squashfs-sysupgrade.img.gz",
-		"image4": "openwrt-bcm27xx-bcm2711-rpi-4-squashfs-sysupgrade.img",
-		"imagepath": "/bcm27xx/bcm2711/",
-		"mod": "RaspberryPi-CM4-USB",
-		"ext1": "-ext4.img",
-		"ext2": "-squashfs.img",
-		"addons": ["readme.pdf"]
-	},
 	"R8000": {
 		"details": "Netgear R8000",
 		"type": "1",
@@ -223,5 +137,59 @@
 		"mod": "Netgear-R8000",
 		"ext": "-upgrade.chk",
 		"addons": ["readme.pdf"]
+	},
+	"WG259": {
+		"details": "ZBT WG259",
+		"type": "1",
+		"build": "2102",
+		"config": ".config_wg259",
+		"image": "openwrt-ramips-mt7621-zbtlink_zbt-wg259-16m-squashfs-sysupgrade.bin",
+		"imagepath": "/ramips/mt7621/",
+		"mod": "ZBT-WG259",
+		"ext": "-upgrade.bin",
+		"addons": ["readme.pdf", "readmerecovery.txt"]
+	},
+	"WG1602-16": {
+		"details": "ZBT WG1602-16",
+		"type": "1",
+		"build": "2102",
+		"config": ".config_wg1602",
+		"image": "openwrt-ramips-mt7621-zbtlink_zbt-wg1602-16m-squashfs-sysupgrade.bin",
+		"imagepath": "/ramips/mt7621/",
+		"mod": "ZBT-WG1602-16",
+		"ext": "-upgrade.bin",
+		"addons": ["readme.pdf", "readmerecovery.txt", "usb-configuration.txt"]
+	},
+	"WG1608-16": {
+		"details": "ZBT WG1608-16",
+		"type": "1",
+		"build": "2203",
+		"config": ".config_wg1608",
+		"image": "openwrt-ramips-mt7621-zbtlink_zbt-wg1608-16m-squashfs-sysupgrade.bin",
+		"imagepath": "/ramips/mt7621/",
+		"mod": "ZBT-WG1608-16",
+		"ext": "-upgrade.bin",
+		"addons": ["readme.pdf", "readmerecovery.txt"]
+	},
+	"MT6000": {
+		"details": "Gl.iNet MT6000",
+		"type": "1",
+		"build": "2305",
+		"config": ".config_mt6000",
+		"image": "openwrt-mediatek-filogic-glinet_gl-mt6000-squashfs-sysupgrade.bin",
+		"imagepath": "/mediatek/filogic/",
+		"mod": "GliNet_MT6000",
+		"ext": "-upgrade.bin"
+	},
+	"EDGE4": {
+		"details": "Ubiquiti EdgeRouter 4",
+		"type": "1",
+		"build": "2305",
+		"config": ".config_edge4",
+		"image": "openwrt-octeon-generic-ubnt_edgerouter-4-squashfs-sysupgrade.tar",
+		"imagepath": "/octeon/generic/",
+		"mod": "Ubiquiti-EdgeRouter4",
+		"ext": "-upgrade.tar",
+		"addons": ["readme.pdf", "readmerecovery.txt"]
 	}
 }

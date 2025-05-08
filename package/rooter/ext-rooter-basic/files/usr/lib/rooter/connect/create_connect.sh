@@ -492,12 +492,14 @@ case $PROT in
 esac
 
 OX=$(for a in /sys/class/tty/*; do readlink $a; done | grep "$MATCH" | tr '\n' ' ' | xargs -r -n1 basename)
-TTYDEVS=$(echo "$OX" | grep -o ttyUSB[0-9])
+TTYDEVS=$(echo "$OX" | grep -o ttyUSB)
 if [ $? -ne 0 ]; then
-	TTYDEVS=$(echo "$OX" | grep -o ttyACM[0-9])
+	TTYDEVS=$(echo "$OX" | grep -o ttyACM)
 	[ $? -eq 0 ] && ACM=1
 fi
-TTYDEVS=$(echo "$TTYDEVS" | tr '\n' ' ')
+echo "$OX" > /tmp/ttyp
+$ROOTER/connect/getports.lua
+TTYDEVS=$(cat /tmp/ttyp | tr '\n' ' ')
 TTYDEVS=$(echo $TTYDEVS)
 if [ -n "$TTYDEVS" ]; then
 	log "Modem $CURRMODEM is a parent of $TTYDEVS"
@@ -836,7 +838,11 @@ if [ -n "$CHKPORT" ]; then
 
 	$ROOTER/common/gettype.sh $CURRMODEM
 	$ROOTER/connect/get_profile.sh $CURRMODEM
-	
+	detect=$(uci -q get modem.modeminfo$CURRMODEM.detect)
+	if [ "$detect" = "1" ]; then
+		log "Stopped after detection"
+		exit 0
+	fi
 	if [ -e $ROOTER/simlock.sh ]; then
 		$ROOTER/simlock.sh $CURRMODEM
 	fi
@@ -850,20 +856,17 @@ if [ -n "$CHKPORT" ]; then
 			uci set wizard.basic.detect="2"
 			uci commit wizard
 		fi
+		if [ -e $ROOTER/connect/simreboot.sh ]; then
+			$ROOTER/connect/simreboot.sh $CURRMODEM
+		fi
 		exit 0
 	fi
 	
-	detect=$(uci -q get modem.modeminfo$CURRMODEM.detect)
-	if [ "$detect" = "1" ]; then
-		log "Stopped after detection"
-		exit 0
-	fi
-
 	if [ -e /usr/lib/gps/gps.sh ]; then
 		/usr/lib/gps/gps.sh $CURRMODEM &
 	fi
 	INTER=$(uci -q get modem.modeminfo$CURRMODEM.inter)
-	[ $INTER = 3 ] && log "Modem $CURRMODEM disabled in Connection Profile" && exit 1
+	[ $INTER = 5 ] && log "Modem $CURRMODEM disabled in Connection Profile" && exit 1
 	$ROOTER/sms/check_sms.sh $CURRMODEM &
 	get_connect
 	if [ -z "$INTER" ]; then
@@ -905,9 +908,9 @@ if [ -n "$CHKPORT" ]; then
 		[ $MAN = "Telit" ] || DHCP=0
 	fi
 	NODHCP=$(uci -q get modem.modeminfo$CURRMODEM.nodhcp)
-	if [ $idV = "2c7c" -a $idP = "0801" ]; then
-		NODHCP="1"
-	fi
+#	if [ $idV = "2c7c" -a $idP = "0801" ]; then
+#		NODHCP="1"
+#	fi
 	if [ "$NODHCP" = "1" ]; then
 		DHCP=0
 		log "Using QMI without DHCP"
@@ -926,15 +929,7 @@ if [ -n "$CHKPORT" ]; then
 		set_dns
 	fi
 
-	ttl=$(uci -q get modem.modeminfo$CURRMODEM.ttl)
-	if [ -z "$ttl" ]; then
-		ttl="0"
-	fi
-	ttloption=$(uci -q get modem.modeminfo$CURRMODEM.ttloption)
-	if [ -z "$ttloption" ]; then
-		ttloption="0"
-	fi
-	$ROOTER/connect/handlettl.sh $CURRMODEM "$ttl" "$ttloption" &
+	$ROOTER/connect/handlettl.sh $CURRMODEM 0 &
 
 	if [ -e $ROOTER/changedevice.sh ]; then
 		$ROOTER/changedevice.sh $ifname
@@ -1186,6 +1181,7 @@ do
 			uci set network.wan$INTER.device=/dev/cdc-wdm$WDMNX
 			uci set network.wan$INTER.metric=$INTER"0"
 			uci set network.wan$INTER.currmodem=$CURRMODEM
+			set_dns
 			uci -q commit network
 			rm -f /tmp/usbwait
 			ifup wan$INTER

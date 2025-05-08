@@ -441,6 +441,128 @@ case $uVid in
 					OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
 				fi
 			;;
+			"81df")
+				if [ ! -z $mask ]; then
+					ATCMDD="AT^BAND_PREF"
+					OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+					fibdecode $mask 1 2
+					bnds="$lst"",0"
+					enc=$(echo "$bnds" | grep -o "," | wc -l)
+					if [ "$enc" -lt 30 ]; then
+						if [ "$enc" -gt 15 ]; then
+							dis=''
+							for i in 1 2 3 4 5 7 8 12 13 14 17 18 19 20 25 26 28 29 30 32 34 38 39 40 41 42 46 48 66 71
+							do
+							   j=1
+								while [ 1=1 ]; do
+									bn=$(echo $bnds | cut -d, -f$j)
+									if [ "$bn" = "0" -o "$bn" -gt "$i" ]; then
+										if [ -z "$dis" ]; then
+											dis=$i
+										else
+											dis=$dis","$i
+										fi
+										break
+									fi
+									if [ "$bn" = "$i" ]; then
+										break
+									fi
+									let j=$j+1
+								done
+							done
+							lst="1,"$dis
+						else
+							lst="2,"$lst
+						fi
+						ATCMDD="AT^BAND_PREF=LTE,""$lst"
+						log "$ATCMDD"
+						OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+						log " "
+						log "Lock Response : $OX"
+						log " "
+					fi
+				else
+					exit 0
+				fi
+				
+				if [ ! -z "$mask5g" ]; then
+					fibdecode $mask5g 1 2
+					bnds="$lst"",0"
+					enc=$(echo "$bnds" | grep -o "," | wc -l)
+					mw=$(uci -q get modem.modem$CURRMODEM.mw)
+					if [ "$mw" = "1" ]; then
+						if [ "$enc" -lt 20 ]; then
+							if [ "$enc" -gt 15 ]; then
+								dis=''
+								for i in 1 2 3 5 7 8 12 20 28 38 41 66 71 77 78 79 257 258 260 261
+								do
+								   j=1
+									while [ 1=1 ]; do
+										bn=$(echo $bnds | cut -d, -f$j)
+										if [ "$bn" = "0" -o "$bn" -gt "$i" ]; then
+											if [ -z "$dis" ]; then
+												dis=$i
+											else
+												dis=$dis","$i
+											fi
+											break
+										fi
+										if [ "$bn" = "$i" ]; then
+											break
+										fi
+										let j=$j+1
+									done
+								done
+								lst="1,"$dis
+							else
+								lst="2,"$lst
+							fi
+							ATCMDD="AT^BAND_PREF=NR5G,""$lst"
+							log "$ATCMDD"
+							OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+							log " "
+							log "Lock Response : $OX"
+							log " "
+						fi
+					else
+						if [ "$enc" -lt 16 ]; then
+							if [ "$enc" -gt 15 ]; then
+								dis=''
+								for i in 1 2 3 5 7 8 12 20 28 38 41 66 71 77 78 79
+								do
+								   j=1
+									while [ 1=1 ]; do
+										bn=$(echo $bnds | cut -d, -f$j)
+										if [ "$bn" = "0" -o "$bn" -gt "$i" ]; then
+											if [ -z "$dis" ]; then
+												dis=$i
+											else
+												dis=$dis","$i
+											fi
+											break
+										fi
+										if [ "$bn" = "$i" ]; then
+											break
+										fi
+										let j=$j+1
+									done
+								done
+								lst="1,"$dis
+							else
+								lst="2,"$lst
+							fi
+							ATCMDD="AT^BAND_PREF=NR5G,""$lst"
+							log "$ATCMDD"
+							OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+							log " "
+							log "Lock Response : $OX"
+							log " "
+						fi
+					fi
+				fi
+				/usr/lib/rooter/connect/bandmask $CURRMODEM $MODT
+				exit 0
+			;;
 		esac
 	;;
 	* )

@@ -280,12 +280,15 @@ log " "
 
 MATCH="$(uci -q get modem.modem$CURRMODEM.maxcontrol | cut -d/ -f3- | xargs dirname)"
 OX=$(for a in /sys/class/tty/*; do readlink $a; done | grep "$MATCH" | tr '\n' ' ' | xargs -r -n1 basename)
-TTYDEVS=$(echo "$OX" | grep -o ttyUSB[0-9])
+TTYDEVS=$(echo "$OX" | grep -o ttyUSB)
 if [ $? -ne 0 ]; then
-	TTYDEVS=$(echo "$OX" | grep -o ttyACM[0-9])
+	TTYDEVS=$(echo "$OX" | grep -o ttyACM)
 	[ $? -eq 0 ] && ACM=1
 fi
-TTYDEVS=$(echo "$TTYDEVS" | tr '\n' ' ')
+echo "$OX" > /tmp/ttyp
+$ROOTER/connect/getports.lua
+TTYDEVS=$(cat /tmp/ttyp | tr '\n' ' ')
+TTYDEVS=$(echo $TTYDEVS)
 TTYDEVS=$(echo $TTYDEVS)
 if [ -n "$TTYDEVS" ]; then
 	log "Modem $CURRMODEM is a parent of $TTYDEVS"
@@ -317,6 +320,9 @@ elif [ $idV = 0e8d -a $idP = 7127  ]; then
 	SP=8
 elif [ $idV = 0e8d -a $idP = 7126  ]; then
 	log "RM350 ECM"
+	SP=9
+elif [ $idV = 0e8d -a $idP = 2028  ]; then
+	log "FG370 ECM"
 	SP=9
 else
 	SP=0
@@ -441,6 +447,11 @@ if [ -e $ROOTER/modem-led.sh ]; then
 fi
 
 $ROOTER/connect/get_profile.sh $CURRMODEM
+detect=$(uci -q get modem.modeminfo$CURRMODEM.detect)
+if [ "$detect" = "1" ]; then
+	log "Stopped after detection"
+	exit 0
+fi
 if [ $SP -gt 0 ]; then
 	if [ -e $ROOTER/simlock.sh ]; then
 		$ROOTER/simlock.sh $CURRMODEM
@@ -451,19 +462,23 @@ if [ $SP -gt 0 ]; then
 		if [ -e $ROOTER/simerr.sh ]; then
 			$ROOTER/simerr.sh $CURRMODEM
 		fi
+		if [ -e $ROOTER/connect/simreboot.sh ]; then
+			$ROOTER/connect/simreboot.sh $CURRMODEM
+		fi
 		exit 0
 	fi
-	detect=$(uci -q get modem.modeminfo$CURRMODEM.detect)
-	if [ "$detect" = "1" ]; then
-		log "Stopped after detection"
-		exit 0
-	fi
+
 	if [ -e /usr/lib/gps/gps.sh ]; then
 		/usr/lib/gps/gps.sh $CURRMODEM &
 	fi
 fi
 
+if [ -e $ROOTER/connect/chkconn.sh ]; then
+	$ROOTER/connect/chkconn.sh $CURRMODEM &
+fi
+
 INTER=$(uci -q get modem.modeminfo$CURRMODEM.inter)
+[ $INTER = 5 ] && log "Modem $CURRMODEM disabled in Connection Profile" && exit 1
 if [ -z "$INTER" ]; then
 	INTER=$CURRMODEM
 else
@@ -511,20 +526,8 @@ else
 fi
 uci commit modem
 
-ttl=$(uci -q get modem.modeminfo$CURRMODEM.ttl)
-if [ -z "$ttl" ]; then
-	ttl="0"
-fi
-ttloption=$(uci -q get modem.modeminfo$CURRMODEM.ttloption)
-if [ -z "$ttloption" ]; then
-	ttloption="0"
-fi
 hostless=$(uci -q get modem.modeminfo$CURRMODEM.hostless)
-if [ "$ttl" != "0" -a "$ttl" != "1" -a "$ttl" != "TTL-INC 1" -a "$hostless" = "1" ]; then
-	let "ttl=$ttl+1"
-fi
-$ROOTER/connect/handlettl.sh $CURRMODEM "$ttl" "$ttloption" &
-
+$ROOTER/connect/handlettl.sh $CURRMODEM "$hostless" &
 
 autoapn=$(uci -q get profile.disable.autoapn)
 imsi=$(uci -q get modem.modem$CURRMODEM.imsi)
@@ -659,10 +662,22 @@ do
 		
 	if [ $SP = 8 -o  $SP = 9 ]; then
 		log "FM350 Connection Command"
-		#fcc_unlock
-		#$ROOTER/connect/bandmask $CURRMODEM 2
 		uci commit modem
-		#get_connect
+		if [ "$NAUTH" = "0" ]; then
+			ATCMDD="AT+CGAUTH=1,$NAUTH"
+			OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+			log "$OX"
+			ATCMDD="AT+CGAUTH=0,$NAUTH"
+			OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+			log "$OX"
+		else
+			ATCMDD="AT+CGAUTH=1,$NAUTH,\"$NUSER\",\"$NPASS\""
+			OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+			log "$OX"
+			ATCMDD="AT+CGAUTH=0,$NAUTH,\"$NUSER\",\"$NPASS\""
+			OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+			log "$OX"
+		fi
 		export SETAPN=$NAPN
 		BRK=1
 		
@@ -783,8 +798,27 @@ do
 		get_ip
 		if [ -z "$ip4" -o "$ip4" = "0.0.0.0" ]; then
 			if [ -z "$ip6" -o "$ip6" = "0000:0000:0000:0000:0000:0000:0000:0000" ]; then
-				BRK=1
-				log "No IP Address"
+				ATCMDD="AT+QMAP=\"WWAN\""
+				OX=$($ROOTER/gcom/gcom-locked "/dev/ttyUSB$CPORT" "run-at.gcom" "$CURRMODEM" "$ATCMDD")
+				echo "$OX" > /tmp/wwanox
+				while IFS= read -r line; do
+					qm=$(echo "$line" | grep "IPV4")
+					if [ ! -z "$qm" ]; then
+						ip4=$(echo $line | cut -d, -f5 | tr -d '"' )
+					fi
+					qm=$(echo "$line" | grep "IPV6")
+					if [ ! -z "$qm" ]; then
+						ip6=$(echo $line | cut -d, -f5 | tr -d '"' )
+					fi
+				done < /tmp/wwanox
+				rm -f /tmp/wwanox
+				log "WWAN IP : $ip4 $ip6"
+				if [ -z "$ip4" -o "$ip4" = "0.0.0.0" ]; then
+					if [ -z "$ip6" -o "$ip6" = "0000:0000:0000:0000:0000:0000:0000:0000" -o "$ip6" = "0:0:0:0:0:0:0:0" ]; then
+						BRK=1
+						log "No IP Address"
+					fi
+				fi
 			fi
 		fi
 		if [ "$BRK" = 0 ]; then
@@ -854,6 +888,7 @@ done
 
 if [ $BRK = 1 ]; then
 	log "Did not connect"
+	exit 0
 fi
 
 rm -f /tmp/usbwait

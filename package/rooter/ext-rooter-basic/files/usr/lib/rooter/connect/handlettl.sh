@@ -59,10 +59,31 @@ fi
 if [ "$TTL" = "0" ]; then
 	ENB=$(uci -q get ttl.ttl.enabled)
 	if [ $ENB = "1" ]; then
-		TTL=$(uci -q get ttl.ttl.value)
-		if [ -z "$TTL" ]; then
-			TTL=65
+		ttl=$(uci -q get ttl.ttl.ttl)
+		if [ -z "$ttl" ]; then
+			ttl="1"
 		fi
+		cttl=$(uci -q get ttl.ttl.cttl)
+		if [ -z "$cttl" ]; then
+			cttl="65"
+		fi
+		hl=$(uci -q get ttl.ttl.hl)
+		if [ -z "$hl" ]; then
+			hl="0"
+		fi
+		chl=$(uci -q get ttl.ttl.chl)
+		if [ -z "$chl" ]; then
+			chl="65"
+		fi
+		ttloption=$(uci -q get ttl.ttl.ttloption)
+		if [ -z "$ttloption" ]; then
+			ttloption="0"
+		fi
+		TTL="$ttl"
+		CTTL="$cttl"
+		HL="$hl"
+		CHL="$chl"
+		TTLOPTION="$ttloption"
 	else
 		delTTL
 		delHL
@@ -88,20 +109,23 @@ if [ "$TTL" = "1" ]; then
 	log "Deleting TTL on interface $IFACE"
 else
 	delTTL
-	log "Setting TTL $TTL on interface $IFACE"
 	echo "#startTTL$CURRMODEM" >> /etc/firewall.user
 	if [ "$TTL" = "TTL-INC 1" ]; then
 		TTLOPTION="0"
 		TTL=64
 	fi
-	
+	if [ "$2" = "1" ]; then
+		let TTL=$TTL+1
+		let HL=$HL+1
+	fi
+	log "Setting TTL $TTL on interface $IFACE"
 	if [ ! -z "$vs" ]; then
 		r1="iptables -t mangle -I POSTROUTING -o $IFACE -j TTL --ttl-set $TTL"
 		r2="iptables -t mangle -I PREROUTING -i $IFACE -j TTL --ttl-set $TTL"
 		r3="iptables -t mangle -I POSTROUTING -p icmp -o $IFACE -j TTL --ttl-set $TTL"
-		r4="ip6tables -t mangle -I POSTROUTING ! -p icmpv6 -o $IFACE -j HL --hl-set $TTL"
-		r5="ip6tables -t mangle -I PREROUTING ! -p icmpv6 -i $IFACE -j HL --hl-set $TTL"
-		r6="ip6tables -t mangle -I POSTROUTING ! -p icmpv6 -o $IFACE -j HL --hl-set $TTL"
+		r4="ip6tables -t mangle -I POSTROUTING ! -p icmpv6 -o $IFACE -j HL --hl-set $HL"
+		r5="ip6tables -t mangle -I PREROUTING ! -p icmpv6 -i $IFACE -j HL --hl-set $HL"
+		r6="ip6tables -t mangle -I POSTROUTING ! -p icmpv6 -o $IFACE -j HL --hl-set $HL"
 	else
 		r1="nft add rule inet fw4 mangle_postrouting oifname $IFACE ip ttl set $TTL"
 		r2="nft add rule inet fw4 mangle_prerouting oifname $IFACE ip ttl set $TTL"

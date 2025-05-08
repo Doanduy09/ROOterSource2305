@@ -1,6 +1,6 @@
 #!/bin/sh
 . /lib/functions/procd.sh
-
+ 
 MODCNT=6
 
 ROOTER=/usr/lib/rooter
@@ -89,6 +89,19 @@ find_device() {
 	retresult=0
 }
 
+find_empty() {
+	COUNTER=1
+	while [ $COUNTER -le $MODCNT ]; do
+		EMPTY=$(uci get modem.modem$COUNTER.empty)
+		if [ $EMPTY -eq 1 ]; then
+			remresult=$COUNTER
+			return
+		fi
+		let COUNTER=COUNTER+1
+	done
+	remresult=0
+}
+
 #
 # check if all modems are inactive or empty
 # delete all if nothing active
@@ -151,6 +164,51 @@ change_bconf() {
 #log "$ACTION"
 if [ "$ACTION" = add ]; then
 	bootdelay
+	if [ -e /tmp/gotpcie ]; then
+		find_usb_attrs
+		if [ "$uPr" = "USB_Storage" ]; then
+			exit 0
+		fi
+		exit 0
+		$ROOTER/proto.sh $uVid $uPid $DEVICENAME 0
+		source /tmp/proto
+		rm -f /tmp/proto
+		if [ $retval = 11 ]; then
+			exit 0
+		fi
+	fi
+	
+	find_usb_attrs
+	
+		
+	if [ $uVid = 10c4 -a $uPid = ea60 ]; then
+		log "Ignoring CP2104 USB to UART Bridge Controller"
+		exit 0
+	fi
+
+#
+# Ignore Ethernet adapters
+#
+	if [ $uVid = 13b1 -a $uPid = 0041 ]; then
+		exit 0
+	elif [ $uVid = 2357 -a $uPid = 0601 ]; then
+		exit 0
+	elif [ $uVid = 1782 -a $uPid = 4d00 ]; then
+		exit 0
+	elif [ $uVid = 0b95 -a $uPid = 772b ]; then
+		exit 0
+	elif [ $uVid = 0b95 -a $uPid = 1790 ]; then
+		exit 0
+	elif [ $uVid = 0bda -a $uPid = 8152 ]; then
+		exit 0
+	elif [ $uVid = 0e8d -a $uPid = 2000 ]; then
+		exit 0
+	elif [ $uVid = 18d1 -a $uPid = 4ee7 ]; then
+		exit 0
+	elif [ $uVid = 2109 -a $uPid = 8822 ]; then
+		exit 0
+	fi
+	
 	CNTR=0
 	while [ -e /tmp/modgone ]; do
 		sleep 1
@@ -160,8 +218,6 @@ if [ "$ACTION" = add ]; then
 			break
 		fi
 	done
-	
-	find_usb_attrs
 
 	if echo $DEVICENAME | grep -q ":" ; then
 		exit 0
@@ -179,42 +235,24 @@ if [ "$ACTION" = add ]; then
 		exit 0
 	fi
 
-	if [ $uVid = 1d6b ]; then
+		if [ $uVid = 1d6b ]; then
 		log "Ignoring Linux Hub"
 		exit 0
 	fi
 
-#
-# Ignore Ethernet adapters
-#
-	if [ $uVid = 13b1 -a $uPid = 0041 ]; then
-		exit 0
-	elif [ $uVid = 2357 -a $uPid = 0601 ]; then
-		exit 0
-	elif [ $uVid = 0b95 -a $uPid = 772b ]; then
-		exit 0
-	elif [ $uVid = 0b95 -a $uPid = 1790 ]; then
-		exit 0
-	elif [ $uVid = 0bda -a $uPid = 8152 ]; then
-		exit 0
-	elif [ $uVid = 0e8d -a $uPid = 2000 ]; then
-		exit 0
-	fi
 
-	
 	DELAY=1
 	if [ -f /tmp/usbwait ]; then
-		log "Delay for previous modem"
+		log "Delay for previous modem $DEVICENAME"
 		while [ -f /tmp/usbwait ]; do
 			sleep 1
 			let DELAY=$DELAY+1
-			if [ $DELAY -gt 25 ]; then
+			if [ $DELAY -gt 35 ]; then
 				break
 			fi
 		done
 	fi
 	echo "1" > /tmp/usbwait
-
 
 	bNumConfs=$(cat /sys/bus/usb/devices/$DEVICENAME/bNumConfigurations)
 	bNumIfs=$(cat /sys/bus/usb/devices/$DEVICENAME/bNumInterfaces)
@@ -267,48 +305,27 @@ if [ "$ACTION" = add ]; then
 
 	reinsert=0
 	find_device $DEVICENAME
-log "Device $DEVICENAME"
-	if [ $retresult -gt 0 ]; then
-		ACTIVE=$(uci get modem.modem$retresult.active)
-		if [ $ACTIVE = 1 ]; then
-			rm -f /tmp/usbwait
-			exit 0
-		else
-			IDP=$(uci get modem.modem$retresult.uPid)
-			IDV=$(uci get modem.modem$retresult.uVid)
-			if [ $uVid = $IDV -a $uPid = $IDP ]; then
-				reinsert=1
-				CURRMODEM=$retresult
-				MODSTART=$retresult
-				uci set modem.modem$CURRMODEM.empty=0
-				uci commit modem
-				WWANX=$(uci get modem.modem$CURRMODEM.wwan)
-				if [ -n "$WWANX" ]; then
-					WWAN=$WWANX
-					save_variables
-				fi
-				WDMNX=$(uci get modem.modem$CURRMODEM.wdm)
-				if [ -n "$WDMNX" ]; then
-					WDMN=$WDMNX
-					save_variables
-				fi
-			#else
-				#display_top; display "Reinsert of different Modem not allowed"; display_bottom
-				#rm -f /tmp/usbwait
-				#exit 0
-			fi
-		fi
+	find_empty
+	if [ "$remresult" = "0" ]; then
+		log "Exceeded Maximum Number of Modems"
+		exit 0
 	fi
-
+	log "CURRMODEM $remresult"
+ 
 	log "Add : $DEVICENAME: Manufacturer=${uMa:-?} Product=${uPr:-?} Serial=${uSe:-?} $uVid $uPid"
 
-	if [ $MODSTART -gt $MODCNT ]; then
-		display_top; display "Exceeded Maximun Number of Modems"; display_bottom
-		#exit 0
-	fi
-
 	if [ $reinsert = 0 ]; then
-		CURRMODEM=$MODSTART
+		CURRMODEM=$remresult
+	fi
+	
+	if [ -e /tmp/gotpcie1 ]; then
+		gpc=$(cat /tmp/gotpcie1)
+		if [ "$gpc" = $CURRMODEM ]; then
+			uci set modem.modem$CURRMODEM.empty=1
+			uci commit modem
+			log "Exit from PCie"
+			exit 0
+		fi
 	fi
 
 	FILEN=$uVid:$uPid
@@ -378,6 +395,7 @@ log "Device $DEVICENAME"
 			fi
 		fi
 	fi
+	echo "1" > /tmp/usbwait
 	sleep 10
 	usb_dir="/sys$DEVPATH"
 	idV="$(sanitize "$usb_dir/idVendor")"
@@ -400,6 +418,9 @@ log "Device $DEVICENAME"
 	if [ $idV = 2cb7 -a $idP = 000b ]; then
 		retval=28
 	fi
+	if [ $idV != 12d1 -a $retval = 24 ]; then
+		retval=5
+	fi
 	display_top; display "ProtoFind returns : $retval"; display_bottom
 	rm -f /tmp/wdrv
 
@@ -415,6 +436,12 @@ log "Device $DEVICENAME"
 	if [ $retval -ne 0 ]; then
 		log "Found Modem $CURRMODEM"
 		if [ $reinsert = 0 ]; then
+			if -e "/tmp/gotpcie1" ]; then
+				gpc=$(cat /tmp/gotpcie1)
+				if [ "$gpc" = $CURRMODEM ]; then
+					exit 0
+				fi
+			fi
 			uci set modem.modem$CURRMODEM.empty=0
 			uci set modem.modem$CURRMODEM.uVid=$uVid
 			uci set modem.modem$CURRMODEM.uPid=$uPid
@@ -439,10 +466,10 @@ log "Device $DEVICENAME"
 		fi
 	fi
 
-	if [ $reinsert = 0 -a $retval != 0 ]; then
-		MODSTART=`expr $MODSTART + 1`
-		save_variables
-	fi
+#	if [ $reinsert = 0 -a $retval != 0 ]; then
+#		MODSTART=`expr $MODSTART + 1`
+#		save_variables
+#	fi
 	PID=$(ps |grep "chkconn.sh" | grep -v grep |head -n 1 | awk '{print $1}')
 	kill -9 $PID
 
@@ -450,7 +477,7 @@ log "Device $DEVICENAME"
 		uci set wizard.basic.detect="0"
 		uci commit wizard
 	fi
-	
+	rm -f /tmp/usbwait
 #
 # Handle specific modem models
 #
@@ -502,9 +529,30 @@ log "Device $DEVICENAME"
 		$ROOTER_LINK/create_proto$CURRMODEM $CURRMODEM &
 		;;
 	"10"|"11"|"12"|"13"|"14"|"15"|"16" )
-		log "Connecting a PPP Modem"
-		ln -s $ROOTER/ppp/create_ppp.sh $ROOTER_LINK/create_proto$CURRMODEM
-		$ROOTER_LINK/create_proto$CURRMODEM $CURRMODEM
+		if [ "$retval" = "11" ]; then
+			if [ -e /dev/wwan0mbim0 ]; then
+				log "Connecting a MHI Modem"
+				uci set modem.modem$CURRMODEM.proto=91
+				ln -s $ROOTER/mhi/create_mhi.sh $ROOTER_LINK/create_proto$CURRMODEM
+			else
+				echo "1" > /sys/bus/pci/rescan
+				log "Rescan"
+				sleep 2
+				if [ -e /dev/wwan0mbim0 ]; then
+					log "Connecting a MHI Modem"
+					uci set modem.modem$CURRMODEM.proto=91
+					ln -s $ROOTER/mhi/create_mhi.sh $ROOTER_LINK/create_proto$CURRMODEM
+				else
+					log "Connecting a PPP Modem"
+					ln -s $ROOTER/ppp/create_ppp.sh $ROOTER_LINK/create_proto$CURRMODEM
+				fi
+			fi
+			$ROOTER_LINK/create_proto$CURRMODEM $CURRMODEM
+		else
+			log "Connecting a PPP Modem"
+			ln -s $ROOTER/ppp/create_ppp.sh $ROOTER_LINK/create_proto$CURRMODEM
+			$ROOTER_LINK/create_proto$CURRMODEM $CURRMODEM
+		fi
 		;;
 	"9" )
 		log "Connecting an iPhone"
@@ -541,6 +589,7 @@ if [ "$ACTION" = remove ]; then
 				$ROOTER/modem-led.sh $retresult 0
 			fi
 			uci set modem.modem$retresult.active=0
+			uci set modem.modem$retresult.empty=1
 			uci set modem.modem$retresult.connected=0
 			uci commit modem
 			if [ -e /etc/config/mwan3 ]; then
